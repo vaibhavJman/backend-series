@@ -1,9 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-//Need to import dotenv package to use env variables
-import dotenv from "dotenv";
 import fs from "fs";
-
-dotenv.config();
 
 // Configuration
 cloudinary.config({
@@ -12,7 +8,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// console.log(cloudinary.config());       //debugging -- checking the env variables
+console.log(cloudinary.config());       //debugging -- checking the env variables
 
 const uploadOnCloudinary = async (localFilePath) => {
   if (!localFilePath) return null;
@@ -24,8 +20,7 @@ const uploadOnCloudinary = async (localFilePath) => {
       resource_type: "auto",
     });
 
-    console.log(response); // Debugging
-
+    // console.log(response); // Debugging
     // console.log("File uploaded on Cloudinary", response.url);       //debugging -- Public URL of uploaded file
 
     return response;
