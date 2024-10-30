@@ -4,27 +4,46 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-const registerUser = asyncHandler(async (req, res) => {
-  //get userdetails from frontend
-  //validation  -- not empty
-  //check if user already exist -- email, username
-  // check for images
-  //check for avatar
-  //upload them to the cloudinary -- avatar
-  //create  user object  -- create entry in database
-  //remove password and refresh token field from response
-  //check for user creation
-  //return response
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = User.findById(userId);
 
-  //If the data is coming from forms and json format then it can be accessed by req.body
-  //If the data is comming from any URL then there are another methods to access the data
-  // For now we can't handle files. This code can only handle text data.
-  // To handle files we'need to add multer's middleware in the routes
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating refresh and access token."
+    );
+  }
+};
+
+const registerUser = asyncHandler(async (req, res) => {
+  //  get userdetails from frontend
+  //  validation  -- not empty
+  //  check if user already exist -- email, username
+  // check for images
+  //  check for avatar
+  //  upload them to the cloudinary -- avatar
+  //  create  user object  -- create entry in database
+  //  remove password and refresh token field from response
+  //  check for user creation
+  //  return response
+
+  //  If the data is coming from forms and json format then it can be accessed by req.body
+  //  If the data is comming from any URL then there are another methods to access the data
+  //  For now we can't handle files. This code can only handle text data.
+  //  To handle files we'need to add multer's middleware in the routes
   const { fullName, username, email, password } = req.body;
-  
+
   // console.log(req.body); returns a object with all the fields send by the client/frontend
   console.log("Email: ", email);
-  
+
   //? Array.some function will calls the callback function for each element of the array and if any of these element returns true(i.e. that field is empty) then this function will return true
   if (
     [fullName, email, username, password].some((field) => field?.trim() === "")
@@ -47,13 +66,21 @@ const registerUser = asyncHandler(async (req, res) => {
   // const avatarLocalPath = req.files?.avatar[0]?.path;
   // const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
-let avatarLocalPath;
-if(req.files && Array.isArray(req.files.avatar) && req.files.avatar.length >0){
-  coverImageLocalPath = req.files.avatar[0].path;
-}
+  let avatarLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.avatar) &&
+    req.files.avatar.length > 0
+  ) {
+    coverImageLocalPath = req.files.avatar[0].path;
+  }
 
   let coverImageLocalPath;
-  if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length >0){
+  if (
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
     coverImageLocalPath = req.files.coverImage[0].path;
   }
 
@@ -94,4 +121,62 @@ if(req.files && Array.isArray(req.files.avatar) && req.files.avatar.length >0){
     .json(new ApiResponse(200, createdUser, "User Registered Successfully!!!"));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  //  Take the user input from the frontend
+  // Check for the username or email
+  //  find the user in the database.
+  // password check.
+  //  Generate Access and refresh token
+  //  Send cookie.
+
+  const { username, email, password } = req.body;
+
+  if (!username || !email) {
+    throw new ApiError(400, "Username or email is required!!");
+  }
+
+  const user = await User.findOne({
+    $or: [{ username }, { email }], //$or --> MongoDB operators
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist!!");
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials!!");
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("refreshToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: user,
+          accessToken,
+          refreshToken,
+        },
+        "User Logged In successfully!!!"
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (res, req) => {
+  
+});
+
+export { registerUser, loginUser };
