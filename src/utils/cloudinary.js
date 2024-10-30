@@ -8,24 +8,24 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-console.log(cloudinary.config());       //debugging -- checking the env variables
+// console.log(cloudinary.config());       //debugging -- checking the env variables
 
 const uploadOnCloudinary = async (localFilePath) => {
   if (!localFilePath) return null;
   // Upload an image
   try {
     // console.log("In cloudinary file", localFilePath);              // Debugging
-
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
     });
-
-    // console.log(response); // Debugging
-    // console.log("File uploaded on Cloudinary", response.url);       //debugging -- Public URL of uploaded file
+    
+    console.log("File uploaded on Cloudinary", response.url);       //debugging -- Public URL of uploaded file
+    fs.unlinkSync(localFilePath); //Remove the locally save temporary file on successful upload.
+    // console.log(response);                                           // Debugging
 
     return response;
   } catch (error) {
-    // fs.unlinkSync(localFilePath); //Remove the locally save temporary file as the upload operation got failed
+    fs.unlinkSync(localFilePath); //Remove the locally save temporary file as the upload operation got failed
     console.log(
       "Error in uploading files on cloudinary.!!!! Files removed from local storage"
     );
