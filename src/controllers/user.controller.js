@@ -229,7 +229,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
 
-  if (incomingRefreshToken) {
+  if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized Access");
   }
 
@@ -237,7 +237,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const decodedRefreshToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
-    );
+    );  
 
     const user = await User.findById(decodedRefreshToken?._id);
 
