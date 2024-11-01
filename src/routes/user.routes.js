@@ -1,6 +1,12 @@
 import { Router } from "express";
-import { registerUser } from "../controllers/user.controller.js";
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+} from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 router.route("/register").post(
@@ -14,9 +20,15 @@ router.route("/register").post(
       maxCount: 1,
     },
   ]),
-  // upload.single(name: "avatar", maxCount: 1)
+  // upload.single(name: "avatar", maxCount: 1),
   registerUser
 );
 // router.post("/register", registerUser);
+
+router.route("/login").post(loginUser);
+
+// secure routes 
+router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/refresh-token").post(refreshAccessToken);
 
 export default router;
