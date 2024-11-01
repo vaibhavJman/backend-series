@@ -41,6 +41,7 @@ const options = {
   secure: true, //cookies are only modiafiable by the server not the client/frontend
 };
 
+//--------------------------------------------------------------------------------------------------------
 const registerUser = asyncHandler(async (req, res) => {
   //  get userdetails from frontend
   //  validation  -- not empty
@@ -139,6 +140,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User Registered Successfully!!!"));
 });
 
+//--------------------------------------------------------------------------------------------------------
 const loginUser = asyncHandler(async (req, res) => {
   //  Take the user input from the frontend
   //  Check for the username or email
@@ -193,6 +195,7 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
+//--------------------------------------------------------------------------------------------------------
 //For logout we have to access the delete the cookie(cuz it contain the access and refresh token) and refresh token field from the user model.
 // But we can't find user in the logout function cuz we don't have access to the _id.
 // that's why we have to create a middle which will add the user object to the req so that we can access _id in the logout function
@@ -221,11 +224,19 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged Out"));
 });
 
+//------------------------------------------------------------------------------------------------------
 //Access token:- short lived tokens. Only stored in cookies
 // Refresh token:- long lived tokens. Stored in cookies as well as database. Used to renew access token.
 // When the user's access token expires. Frontend make request to an endpoint with the refresh token saved in cookies and then backedn verify that refresh token with one saved in the database(refresh token in user model). If the user is verified backend will renew the access token.
 // This method will make an endpoint where the users can make a request and renew their access token.
 const refreshAccessToken = asyncHandler(async (req, res) => {
+  // Extract the refresh token from the cookies of the user or from the request body.
+  // Check the incoming Refresh token
+  // Decode this token
+  // Verify this refresh token by sending request to the database.
+  // Compare the token with the stored refresh token
+  // Generate new tokens
+  // Return response with new tokens
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
 
@@ -237,7 +248,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const decodedRefreshToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
-    );  
+    );
 
     const user = await User.findById(decodedRefreshToken?._id);
 
@@ -271,4 +282,50 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+//------------------------------------------------------------------------------------------------------
+const changeCurrentPassword = asyncHandler(async (res, res) => {
+  // Get the old and new password from the user
+  // Check the old password in the database and fetch the user.
+  // Change the password in the database.
+  // Return response
+
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user?._id);
+  const passwordCheck = await user.isPasswordCorrect(oldPassword);
+
+  if (!passwordCheck) {
+    throw new ApiError(401, "Incorrect Old password!!");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: true }); //If there are any other validation in the user model's fields then they will not trigger. Only the password field's validation will trigger.
+
+  return res
+    .status(200)
+    .json(ApiResponse(200, {}, "Password changed Successfully"));
+});
+
+//--------------------------------------------------------------------------------------------------------
+const getCurrentUser = asyncHandler((req, res) => {
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { user: req.user },
+        "Current User Fetched Successfully"
+      )
+    );
+});
+
+const updateAccountDetails = asyncHandler((req, res) => {});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  getCurrentUser,
+  changeCurrentPassword,
+};
