@@ -3,6 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { v2 as cloudinary } from "cloudinary";
+
 import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -365,20 +367,22 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   // Delete the previous avatar file.
   // Return response
 
+  const oldAvatarPublicPath = req.user.avatar;
+
   const avatarLocalPath = req.file?.path;
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-  if (!avatar.url) {
+  const newAvatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!newAvatar.url) {
     throw new ApiError(400, "Error while uploading avatar on cloud");
   }
 
   const user = await User.findByIdAndUpdate(
     req.user._id,
     {
-      avatar: avatar.url,
+      avatar: newAvatar.url,
     },
     {
       new: true,
@@ -386,6 +390,18 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // Todo: delete old avatar image
+  // console.log("\nIn updateUserAvatar --> New Avatar Public URL :",newAvatar.url);        //debugging
+  const oldAvatarPublicId = oldAvatarPublicPath.split("/").pop().split(".")[0];
+  // console.log( "\nIn updateUserAvatar --> Old Avatar Public URL :", oldAvatarPublicPath);        //debugging
+  // console.log( "\nIn updateUserAvatar --> Old Avatar Public ID :", oldAvatarPublicId);       //debugging
+
+  // To delete one  asset at a time . use destroy(public ID of asset) method
+  //! The destroy() method needs public ID of the asset not the public url
+  cloudinary.uploader
+    .destroy(oldAvatarPublicId)
+    .then((result) =>
+      console.log("Old Avatar Image deleted successfully", result)
+    );
 
   return res
     .status(200)
@@ -393,6 +409,8 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const oldCoverImagePublicPath = req.user?.coverImage;
+
   const coverImageLocalPath = req.file?.path;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Cover Image file is missing");
@@ -414,6 +432,16 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // Todo: delete old coverImage image
+  const oldCoverImagePublicId = oldCoverImagePublicPath
+    .split("/")
+    .pop()
+    .split(".")[0];
+
+  cloudinary.uploader
+    .destroy(oldCoverImagePublicId)
+    .then((result) =>
+      console.log("Old Cover Image deleted successfully", result)
+    );
 
   return res
     .status(200)
