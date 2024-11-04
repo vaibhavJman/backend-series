@@ -291,15 +291,17 @@ const changeCurrentPassword = asyncHandler(async (res, res) => {
 
   const { oldPassword, newPassword } = req.body;
 
+  //If the user is changing his password that means he is logged in. That's means the middleware verifyJWT will verify the request and add 'user' object to the request.
   const user = await User.findById(req.user?._id);
   const passwordCheck = await user.isPasswordCorrect(oldPassword);
 
   if (!passwordCheck) {
-    throw new ApiError(401, "Incorrect Old password!!");
+    throw new ApiError(400, "Incorrect Old password!!");
   }
 
   user.password = newPassword;
   await user.save({ validateBeforeSave: true }); //If there are any other validation in the user model's fields then they will not trigger. Only the password field's validation will trigger.
+  //The password will be hashed automatically as we wrote the function using Pre-Hook in the user model.
 
   return res
     .status(200)
@@ -308,18 +310,98 @@ const changeCurrentPassword = asyncHandler(async (res, res) => {
 
 //--------------------------------------------------------------------------------------------------------
 const getCurrentUser = asyncHandler((req, res) => {
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { user: req.user },
-        "Current User Fetched Successfully"
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { user: req.user }, //req.user ---> the user object came from the middleware verifyJWT.
+      "Current User Fetched Successfully"
+    )
+  );
 });
 
-const updateAccountDetails = asyncHandler((req, res) => {});
+//Updating Text
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  //Both fields are mandatory
+  if (!fullName || !email) {
+    throw new ApiError(401, "All fields are required!!");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      fullName, //--> it's similar to fullName: fullName;
+      email: email,
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account Details Updated!!"));
+});
+
+//Updating Files
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  // multar middleware will take the file from user and upload it to the local storage and add a object file to the request.
+  // Upload on cloudinary
+  // Update the avatar object in the user model.
+  // Delete the previous
+  // Return response
+
+  const avatarLocalPath = req.file?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is missing");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.url) {
+    throw new ApiError(400, "Error while uploading avatar on cloud");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      avatar: avatar.url,
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar file Updated Successfully"));
+});
+
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Cover Image file is missing");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  if (!coverImage.url) {
+    throw new ApiError(400, "Error while uploading coverImage on cloud");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      coverImage: coverImage.url,
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover Image file Updated Successfully"));
+});
 
 export {
   registerUser,
@@ -328,4 +410,7 @@ export {
   refreshAccessToken,
   getCurrentUser,
   changeCurrentPassword,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImage,
 };
