@@ -260,19 +260,21 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Refresh Token is expired or used!!!!");
     }
 
-    const { accessToken, renewRefreshToken } =
+    //refreshToken: newRefreshToken --> This renames refreshToken as newRefreshToken, making sure it matches the usage in refreshAccessToken.
+    // In this line 'refreshToken' is the variable sent by the generateAccessAndRefreshToken() function and 'newRefreshToken' is the renamed variable.
+    const { accessToken, refreshToken: newRefreshToken } =
       await generateAccessAndRefreshToken(user._id);
 
     return res
       .status(200)
       .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", renewRefreshToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
       .json(
         new ApiResponse(
           200,
           {
             accessToken,
-            refreshToken: renewRefreshToken,
+            refreshToken: newRefreshToken,
           },
           "Access Token Renewed"
         )
@@ -283,7 +285,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 //------------------------------------------------------------------------------------------------------
-const changeCurrentPassword = asyncHandler(async (res, res) => {
+const changeCurrentPassword = asyncHandler(async (req, res) => {
   // Get the old and new password from the user
   // Check the old password in the database and fetch the user.
   // Change the password in the database.
@@ -305,7 +307,7 @@ const changeCurrentPassword = asyncHandler(async (res, res) => {
 
   return res
     .status(200)
-    .json(ApiResponse(200, {}, "Password changed Successfully"));
+    .json(new ApiResponse(200, {}, "Password changed Successfully"));
 });
 
 //--------------------------------------------------------------------------------------------------------
@@ -321,11 +323,22 @@ const getCurrentUser = asyncHandler((req, res) => {
 
 //Updating Text
 const updateAccountDetails = asyncHandler(async (req, res) => {
+  // Get the details from the frontend
+  // Check for the empty string
+  // Check if the username or email are the same as the previous
+  // Update the required fields
+  // Remove the password field from the request
+  // Return response
+
   const { fullName, email } = req.body;
 
   //Both fields are mandatory
   if (!fullName || !email) {
-    throw new ApiError(401, "All fields are required!!");
+    throw new ApiError(400, "All fields are required!!");
+  }
+
+  if (email === req.user.email) {
+    throw new ApiError(400, "Email match the previous emailId");
   }
 
   const user = await User.findByIdAndUpdate(
@@ -349,7 +362,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   // multar middleware will take the file from user and upload it to the local storage and add a object file to the request.
   // Upload on cloudinary
   // Update the avatar object in the user model.
-  // Delete the previous
+  // Delete the previous avatar file.
   // Return response
 
   const avatarLocalPath = req.file?.path;
@@ -371,6 +384,8 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
       new: true,
     }
   ).select("-password");
+
+  // Todo: delete old avatar image
 
   return res
     .status(200)
@@ -398,9 +413,19 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     }
   ).select("-password");
 
+  // Todo: delete old coverImage image
+
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Cover Image file Updated Successfully"));
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    throw new ApiError(400, "Username is missing");
+  }
 });
 
 export {
@@ -413,4 +438,5 @@ export {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
+  getUserChannelProfile,
 };
