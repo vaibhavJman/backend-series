@@ -7,11 +7,10 @@ import { User } from "../models/user.model.js";
 // export const verifyJWT = asyncHandler(async (req, res, next) => {
 export const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
-    // If the toke is store in cookies then we can extract that from the req.cookie?.accessToken.
+    // If the token is stored in cookies then we can extract that from the req.cookie?.accessToken.
     // If the user sending the token with the request header then we have to extract it with req.header("Authorization")
 
     // console.log("\nAuth middleware: ", req.cookies);                 //Debugging
-
     const token =
       req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");

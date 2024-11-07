@@ -4,8 +4,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { v2 as cloudinary } from "cloudinary";
-
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -25,7 +25,7 @@ const generateAccessAndRefreshToken = async (userId) => {
     // ); //Debugging
 
     user.refreshToken = refreshToken;
-    // when you save the user then all the fields of user.model will kick in.that's means password should be mantory as in specified in the model. But we don't have password in this user object.
+    // When you save the user then all the fields of user.model will kick in.That's means password should be mandatory as in specified in the model. But we don't have password in this user object.
     // That's why we have to use validateBeforeSave: false
     await user.save({ validateBeforeSave: false });
 
@@ -210,7 +210,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     req.user._id,
     {
       $unset: {
-        refreshToken: 1,    // this removes the field from document
+        refreshToken: 1, // this removes the field from document
       },
     },
     {
@@ -363,7 +363,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 //--------------------------------------------------------------------------------------------------------
 //Updating Files
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  // multar middleware will take the file from user and upload it to the local storage and add a object file to the request.
+  // Multar middleware will take the file from user and upload it to the local storage and add a object file to the request.
   // Upload on cloudinary
   // Update the avatar object in the user model.
   // Delete the previous avatar file.
@@ -391,19 +391,32 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
   ).select("-password");
 
-  // Todo: delete old avatar image
+  // Todo: Make a utility function to delete old avatar image
   // console.log("\nIn updateUserAvatar --> New Avatar Public URL :",newAvatar.url);        //debugging
-  const oldAvatarPublicId = oldAvatarPublicPath.split("/").pop().split(".")[0];
-  // console.log( "\nIn updateUserAvatar --> Old Avatar Public URL :", oldAvatarPublicPath);        //debugging
-  // console.log( "\nIn updateUserAvatar --> Old Avatar Public ID :", oldAvatarPublicId);       //debugging
 
-  // To delete one  asset at a time . use destroy(public ID of asset) method
-  //! The destroy() method needs public ID of the asset not the public url
-  cloudinary.uploader
+  //Sample Public URL of avatar  --> http://res.cloudinary.com/dyzkcadf6/image/upload/v1730869666/dfavgxz586qislyskgbi.jpg
+  const oldAvatarPublicId = oldAvatarPublicPath.split("/").pop().split(".")[0]; // splitting the URL on / and then taking the last part (which includes the file name with the extension) and splitting again on '.' to remove the extension.
+  console.log(
+    "\nIn updateUserAvatar --> Old Avatar Public URL :",
+    oldAvatarPublicPath
+  ); //debugging
+  console.log(
+    "\nIn updateUserAvatar --> Old Avatar Public ID :",
+    oldAvatarPublicId
+  ); //debugging
+
+  // To delete one  asset at a time .Use 'destroy(public ID of asset)' method
+  //! The destroy() method needs public ID of the asset not the public url     -- default resource_type: "image" and type: "upload" will be used. --> It can't delete video assets until define explicity --> resource_type: "video".
+  const deleteavatar = cloudinary.uploader
     .destroy(oldAvatarPublicId)
-    .then((result) =>
-      console.log("Old Avatar Image deleted successfully", result)
-    );
+    .then(
+      (result) => console.log("Old Avatar Image deleted successfully", result) //If the result is 'not found' that means destroy() function didn't find the asset.
+    )
+    .catch((error) => console.error("Error deleting old avatar", error));
+
+  // If you try to delete a video without specifying resource_type: 'video', Cloudinary will treat the asset as an image and return a not found result if the asset is a video. This is not an error; it's simply the expected behavior, as Cloudinary doesn't throw errors when mismatched resource types are used. This is why it doesn’t enter the .catch() block when there's a resource type mismatch. The catch block is only triggered for actual exceptions, such as network issues or incorrect API credentials.
+
+  // console.log("\nIn updateUserAvatar --> delete avatar ", deleteavatar);
 
   return res
     .status(200)
@@ -434,7 +447,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     }
   ).select("-password");
 
-  // Todo: delete old coverImage image
+  // Todo: Make a utility function to delete old coverImage image
   const oldCoverImagePublicId = oldCoverImagePublicPath
     .split("/")
     .pop()
@@ -488,7 +501,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subscribers",
         },
 
-        channelsSubscribedToCount: {
+        channelSubscribedToCount: {
           $size: "$subscribedTo",
         },
         isSubscribed: {
@@ -506,7 +519,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         username: 1,
         email: 1,
         subsribersCount: 1,
-        channelsSubscribedToCount: 1,
+        channelSubscribedToCount: 1,
         isSubscribed: 1,
         avatar: 1,
         coverImage: 1,
@@ -514,11 +527,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     },
   ]);
 
-  // console.log("\ngetUserChannelProfile() ->> ", channel);
+  // console.log("\ngetUserChannelProfile() ->> ", channel);                //Debugging
 
   if (!channel?.length) {
     throw new ApiError(404, "Channel does not exist!!");
   }
+
+  // Aggregation Pipeline will return an array. that's why we are using channel[0] to get the first element of this array(i.e. the channel Profile Info.)
 
   return res
     .status(200)
@@ -527,7 +542,61 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
-const getUserWatchHistory = asyncHandler(async (req, res) => {});
+const getUserWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          //Sub pipeline
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                //Sub pipeline
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "Watch History Fetched Successfully"
+      )
+    );
+});
 
 export {
   registerUser,
