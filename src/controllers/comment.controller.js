@@ -32,8 +32,8 @@ const addComment = asyncHandler(async (req, res) => {
 
   const comment = await Comment.create({
     content: content,
-    video: new mongoose.Types.ObjectId(videoId),
-    owner: new mongoose.Types.ObjectId(req.user._id),
+    video: videoId,
+    owner: req.user._id,
   });
 
   if (!comment) {
