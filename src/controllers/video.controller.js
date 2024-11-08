@@ -225,6 +225,15 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+  if (!videoId) {
+    throw new ApiError(400, "Video ID is missing!");
+  }
+
+  if (isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Video ID");
+  }
+
+  
 });
 
 export {
