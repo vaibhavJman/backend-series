@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import { Console } from "console";
 import fs from "fs";
 
 // Configuration
@@ -33,4 +34,15 @@ const uploadOnCloudinary = async (localFilePath) => {
   }
 };
 
-export { uploadOnCloudinary };
+const deleteFromCloudinary = async (publicFilePath) => {
+  if (!publicFilePath) return null;
+
+  const publicId = publicFilePath.split("/").pop().split(".")[0];
+  const response = await cloudinary.uploader
+    .destroy(publicId)
+    .then((result) => console.log("Old File deleted successfully", result));
+
+  return response;
+};
+
+export { uploadOnCloudinary, deleteFromCloudinary };

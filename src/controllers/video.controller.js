@@ -3,8 +3,10 @@ import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import { v2 as cloudinary } from "cloudinary";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
@@ -14,10 +16,13 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
   // TODO:
-  // 1. get video
-  // 2. upload to cloudinary
-  // 3. Get the duration from cloudinary
-  // 4. create video
+  // 1. Get the title and description
+  // 2. Check for the empty strings
+  // 3. get video
+  // 4. Get the thumbnail
+  // 5. upload to cloudinary
+  // 6. Get the duration from cloudinary response
+  // 7. create video in the dbase
 
   if ([title, description].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "All Fields are Required");
@@ -71,9 +76,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     owner: req.user._id,
   });
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, video, "Video Published Successfully!!"));
+  return res.status(200).json(new ApiResponse(200, video, "Video Published!!"));
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
@@ -84,41 +87,53 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Video ID is missing!!");
   }
 
-  const video = await Video.findById(videoId);
-  if (!video) {
-    throw new ApiError(400, "Video not found!!!");
+  // It returns true if the input is a properly formatted ObjectId and false otherwise.
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Video ID");
   }
 
-  // console.log(video);        //Debugging
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found!!!");
+  }
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, video.videoFile, "Video extracted successfully!!")
-    );
+    .json(new ApiResponse(200, video, "Video Fetched successfully!!"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
   //TODO: update video details like title, description, thumbnail
-  /*1. Take the required video's videoId from the user 
+  /*
+  1. Take the required video's videoId from the user 
   2. Check for the empty string.
-  3. Get the public path of Old thumbnail from database.
+  3. Get the public path of Old thumbnail from database and check if the video exist or not.
   4. Get the updated text(title and description) from the frontend/user
   5. Get the local path of thumbnail file from req.file(it is not array cuz we're uploading only single file) from the local storage.
   6. Check for the empty strings in all 3(title, descripton and new thumbnail) of them.
-  7. Upload on cloudinary
-  8. Update all the required fields.
-  9. Return response
+  7. Check for the owner.
+  8. Upload on cloudinary
+  9. Update all the required fields.
+  10. Delete previous thumbnail from cloud.
+  11. Return response
   */
 
+  const user = req.user._id;
   const { videoId } = req.params;
   if (!videoId) {
     throw new ApiError(400, "Video ID is missing!!");
   }
 
-  // Get the old thumbnail Public Path from the database
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invlid Video ID");
+  }
+
+  // Get the old thumbnail Public Path  and check if the video exist or not from the database
   const video = await Video.findById(videoId);
   const oldThumbnail = video.thumbnail;
+  if (!video) {
+    throw new ApiError(404, "Video not found!!");
+  }
 
   //Get the updated thumbnail local path
   const thumbnailLocalPath = req.file?.path;
@@ -128,14 +143,17 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Title, Description or thumbnail is required!!");
   }
 
-  // console.log("\n req.file --> ", req.file);                                     //Debugging
+  if (!video.owner.equals(user)) {
+    throw new ApiError(403, "You are not allowed to update this video");
+  }
+
+  // console.log(req.file);
   //  req.file returns a object containing fieldname, path originalname, etc, cuz we're uploading only single file
 
-  // console.log("\n new Thumbnail local path--> ", thumbnailLocalPath);            //Debugging
-
   const newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-
-  // console.log("\nnew Thumbnail  --> ", newThumbnail);         //Debugging
+  if (!newThumbnail) {
+    throw new ApiError(500, "Error while uploading new thumbnail");
+  }
 
   const videoUpdated = await Video.findByIdAndUpdate(
     videoId,
@@ -149,24 +167,12 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
   );
 
-  // console.log("\n videoupdate controller --> Video result ", videoUpdated);        //Debugging
-
-  if (!video) {
+  if (!videoUpdated) {
     throw new ApiError(500, "Error while Updating Title or Description");
   }
 
-  // Todo: Make a utility function to delete old coverImage image
-  // Extract the public ID of the old  cover image from the URL.
-  const oldThumbnailPublicId = oldThumbnail.split("/").pop().split(".")[0];
-
-  // console.log(oldThumbnailPublicId);
-
-  //Delete the old cover Image from cloudinary
-  cloudinary.uploader
-    .destroy(oldThumbnailPublicId)
-    .then((result) =>
-      console.log("Old Thumbnail Image deleted successfully", result)
-    );
+  //!Delete old file
+  await deleteFromCloudinary(oldThumbnail);
 
   return res
     .status(200)
