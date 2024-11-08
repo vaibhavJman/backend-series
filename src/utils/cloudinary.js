@@ -37,12 +37,34 @@ const uploadOnCloudinary = async (localFilePath) => {
 const deleteFromCloudinary = async (publicFilePath) => {
   if (!publicFilePath) return null;
 
-  const publicId = publicFilePath.split("/").pop().split(".")[0];
-  const response = await cloudinary.uploader
-    .destroy(publicId)
-    .then((result) => console.log("Old File deleted successfully", result));
+  try {
+    const publicId = publicFilePath.split("/").pop().split(".")[0];
+    const response = await cloudinary.uploader
+      .destroy(publicId)
+      .then((result) => console.log("Old File deleted successfully", result))
+      .catch((error) => console.error("Error deleting old files", error));
 
-  return response;
+    return response;
+  } catch (error) {
+    console.log("Error in deleting files on cloudinary.!", error);
+    return null;
+  }
 };
 
 export { uploadOnCloudinary, deleteFromCloudinary };
+
+//----------------------------------------------------------------------------------------------------------------------------------
+//Sample Public URL of avatar  --> http://res.cloudinary.com/dyzkcadf6/image/upload/v1730869666/dfavgxz586qislyskgbi.jpg
+
+// const oldAvatarPublicId = oldAvatarPublicPath.split("/").pop().split(".")[0]; // splitting the URL on / and then taking the last part (which includes the file name with the extension) and splitting again on '.' to remove the extension.
+
+// To delete one  asset at a time .Use 'destroy(public ID of asset)' method
+// //! The destroy() method needs public ID of the asset not the public url     -- default resource_type: "image" and type: "upload" will be used. --> It can't delete video assets until define explicity --> resource_type: "video".
+// const deleteavatar = await cloudinary.uploader
+//   .destroy(oldAvatarPublicId)
+//   .then(
+//     (result) => console.log("Old Avatar Image deleted successfully", result) //If the result is 'not found' that means destroy() function didn't find the asset.
+//   )
+//   .catch((error) => console.error("Error deleting old avatar", error));
+
+// If you try to delete a video without specifying resource_type: 'video', Cloudinary will treat the asset as an image and return a not found result if the asset is a video. This is not an error; it's simply the expected behavior, as Cloudinary doesn't throw errors when mismatched resource types are used. This is why it doesn’t enter the .catch() block when there's a resource type mismatch. The catch block is only triggered for actual exceptions, such as network issues or incorrect API credentials.

@@ -2,7 +2,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import { v2 as cloudinary } from "cloudinary";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -393,31 +396,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // Todo: Make a utility function to delete old avatar image
-  // console.log("\nIn updateUserAvatar --> New Avatar Public URL :",newAvatar.url);        //debugging
-
-  //Sample Public URL of avatar  --> http://res.cloudinary.com/dyzkcadf6/image/upload/v1730869666/dfavgxz586qislyskgbi.jpg
-  const oldAvatarPublicId = oldAvatarPublicPath.split("/").pop().split(".")[0]; // splitting the URL on / and then taking the last part (which includes the file name with the extension) and splitting again on '.' to remove the extension.
-  console.log(
-    "\nIn updateUserAvatar --> Old Avatar Public URL :",
-    oldAvatarPublicPath
-  ); //debugging
-  console.log(
-    "\nIn updateUserAvatar --> Old Avatar Public ID :",
-    oldAvatarPublicId
-  ); //debugging
-
-  // To delete one  asset at a time .Use 'destroy(public ID of asset)' method
-  //! The destroy() method needs public ID of the asset not the public url     -- default resource_type: "image" and type: "upload" will be used. --> It can't delete video assets until define explicity --> resource_type: "video".
-  const deleteavatar = cloudinary.uploader
-    .destroy(oldAvatarPublicId)
-    .then(
-      (result) => console.log("Old Avatar Image deleted successfully", result) //If the result is 'not found' that means destroy() function didn't find the asset.
-    )
-    .catch((error) => console.error("Error deleting old avatar", error));
-
-  // If you try to delete a video without specifying resource_type: 'video', Cloudinary will treat the asset as an image and return a not found result if the asset is a video. This is not an error; it's simply the expected behavior, as Cloudinary doesn't throw errors when mismatched resource types are used. This is why it doesn’t enter the .catch() block when there's a resource type mismatch. The catch block is only triggered for actual exceptions, such as network issues or incorrect API credentials.
-
-  // console.log("\nIn updateUserAvatar --> delete avatar ", deleteavatar);
+  await deleteFromCloudinary(oldAvatarPublicPath);
 
   return res
     .status(200)
@@ -453,18 +432,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // Todo: Make a utility function to delete old coverImage image
-  // Extract the public ID of the old  cover image from the URL.
-  const oldCoverImagePublicId = oldCoverImagePublicPath
-    .split("/")
-    .pop()
-    .split(".")[0];
-
-  //Delete the old cover Image from cloudinary
-  cloudinary.uploader
-    .destroy(oldCoverImagePublicId)
-    .then((result) =>
-      console.log("Old Cover Image deleted successfully", result)
-    );
+  await deleteFromCloudinary(oldCoverImagePublicPath);
 
   return res
     .status(200)
