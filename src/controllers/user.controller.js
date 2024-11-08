@@ -87,7 +87,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // const avatarLocalPath = req.files?.avatar[0]?.path;             // Get the local path of the avatar
   // const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
-  //Get the local path of the avatar using If-else
+  //Get the local path of the avatar and check if the user has uploaded avatar file or not
   let avatarLocalPath;
   if (
     req.files &&
@@ -107,14 +107,14 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is requierd!!!");
+    throw new ApiError(400, "Avatar file is required!!!");
   }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
-    throw new ApiError(400, "Avatar file is requierd!!!");
+    throw new ApiError(400, "Avatar file is required!!!");
   }
 
   //When accessing the database. there are 2 things that you need to keep in mind
@@ -426,18 +426,22 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
 //--------------------------------------------------------------------------------------------------------
 const updateUserCoverImage = asyncHandler(async (req, res) => {
+  //1. Get the old cover image path to delete it from the cloudinary after uploading the updated one.
   const oldCoverImagePublicPath = req.user?.coverImage;
 
+  //2. Get the updated cover image Local path
   const coverImageLocalPath = req.file?.path;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Cover Image file is missing");
   }
 
+  //3. Upload the updated cover image on the cloudinary
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
   if (!coverImage.url) {
     throw new ApiError(400, "Error while uploading coverImage on cloud");
   }
 
+  //4. Update the cover image URL in database
   const user = await User.findByIdAndUpdate(
     req.user._id,
     {
@@ -449,11 +453,13 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // Todo: Make a utility function to delete old coverImage image
+  // Extract the public ID of the old  cover image from the URL.
   const oldCoverImagePublicId = oldCoverImagePublicPath
     .split("/")
     .pop()
     .split(".")[0];
 
+  //Delete the old cover Image from cloudinary
   cloudinary.uploader
     .destroy(oldCoverImagePublicId)
     .then((result) =>

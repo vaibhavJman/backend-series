@@ -54,18 +54,18 @@ const updateComment = asyncHandler(async (req, res) => {
 
   const { content } = req.body;
   if (!content) {
-    throw new ApiError(400, "Comment content is missing!!");
+    throw new ApiError(400, "Comment content is required!!");
   }
 
   const user = req.user._id;
   const originalComment = await Comment.findById(commentId);
   // console.log(originalComment);   /debugging
-
   if (!originalComment) {
     throw new ApiError(404, "Comment not found!!");
   }
 
-  if (originalComment.owner !== user) {
+  // The .equals() method on ObjectId ensures that the two ObjectIds have the same value, regardless of the object references themselves.
+  if (!originalComment.owner.equals(user)) {
     throw new ApiError(403, "You don't have permission to update this comment");
   }
 
@@ -90,10 +90,29 @@ const updateComment = asyncHandler(async (req, res) => {
 
 const deleteComment = asyncHandler(async (req, res) => {
   // TODO: delete a comment
+  // Get the comment ID from the URL
+  // Check for the empty strings
+  // Find the comment in the database (to check if the comment exist or not)
+  // Check for the owner of the comment
+  // Delete the comment
+  // Return response
 
   const { commentId } = req.params;
   if (!commentId) {
     throw new ApiError(404, "Comment ID is missing !!");
+  }
+
+  // Checking for the owner of the comment.
+  const user = req.user._id;
+  const originalComment = await Comment.findById(commentId);
+  console.log(originalComment); //debugging
+  console.log("user", user);
+  if (!originalComment) {
+    throw new ApiError(404, "Comment not found!!");
+  }
+
+  if (!originalComment.owner.equals(user)) {
+    throw new ApiError(403, "You don't have permission to update this comment");
   }
 
   const commentStatus = await Comment.deleteOne({ _id: commentId }); //Use await otherwise it'll go ahead and send the response but will not delete the comment from the database.
@@ -104,7 +123,7 @@ const deleteComment = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Comment deleted Successfully"));
+    .json(new ApiResponse(200, commentStatus, "Comment deleted Successfully"));
 });
 
 export { getVideoComments, addComment, updateComment, deleteComment };
