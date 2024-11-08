@@ -184,14 +184,43 @@ const updateVideo = asyncHandler(async (req, res) => {
 const deleteVideo = asyncHandler(async (req, res) => {
   //TODO: delete video
   // Get the video ID from the URL
-  // check for the empty strings
-  // find the video document in the database
-  // Get the public URL from the databse and delete the video from cloudinary
-  // Delete the
+  // Check for the empty strings
+  // Find the video document in the database
+  // Get the public URL of the video and thumbnail from the databse and delete them from cloudinary
+  // Delete the Video document from the dbase
+  // Return the response
+
   const { videoId } = req.params;
   if (!videoId) {
     throw new ApiError(400, "Video ID is missing!!");
   }
+
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invlid Video ID");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!Video) {
+    throw new ApiError(404, "Video not found!!");
+  }
+
+  if (!video.owner.equals(req.user._id)) {
+    throw new ApiError(403, "You are not allowed to update this video");
+  }
+
+  let resource_type;
+  await deleteFromCloudinary(video.videoFile, (resource_type = "video"));
+  await deleteFromCloudinary(video.thumbnail);
+
+  const deletedVideo = await Video.findByIdAndDelete(videoId);
+  // console.log(deletedVideo);
+  if (!deletedVideo) {
+    throw new ApiError(500, "Error while deleting video!!");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Video Deleted Successfully"));
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
