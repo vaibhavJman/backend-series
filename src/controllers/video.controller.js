@@ -25,6 +25,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
   // 7. create video in the dbase
 
   if ([title, description].some((field) => field?.trim() === "")) {
+    //Can be done by if condition
     throw new ApiError(400, "All Fields are Required");
   }
 
@@ -232,8 +233,6 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   if (isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Video ID");
   }
-
-  
 });
 
 export {

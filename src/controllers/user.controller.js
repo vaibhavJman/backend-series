@@ -6,7 +6,6 @@ import {
   deleteFromCloudinary,
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
-import { v2 as cloudinary } from "cloudinary";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 

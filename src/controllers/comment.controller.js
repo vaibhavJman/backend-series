@@ -59,7 +59,7 @@ const updateComment = asyncHandler(async (req, res) => {
 
   const user = req.user._id;
   const originalComment = await Comment.findById(commentId);
-  // console.log(originalComment);   /debugging
+  // console.log(originalComment);   //debugging
   if (!originalComment) {
     throw new ApiError(404, "Comment not found!!");
   }
