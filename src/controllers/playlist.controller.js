@@ -1,5 +1,6 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { Playlist } from "../models/playlist.model.js";
+import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -65,7 +66,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   const userPlaylist = await Playlist.find({ owner: user._id }); //Returns array of document
   // console.log(userPlaylist);
   if (!userPlaylist) {
-    throw new ApiResponse(400, "Error while fetching User Playlist!!");
+    throw new ApiResponse(500, "Error while fetching User Playlist!!");
   }
 
   return res
@@ -99,6 +100,9 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   // It will return the deleted item also.
 
   const deletePlaylist = await Playlist.deleteOne({ _id: playlistId });
+  if (!deletePlaylist) {
+    throw new ApiError(500, "Error while deleting the playlist!!");
+  }
 
   return res
     .status(200)
@@ -113,7 +117,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
   const { name, description } = req.body;
 
-  if (!playlistId) {
+  if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid PlaylistID!");
   }
 
@@ -129,10 +133,41 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   if (!playlist.owner.equals(req.user._id)) {
     throw new ApiError(400, "You don't have permission to update playlist!!");
   }
+
+  const updatedPlaylist = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      name: name,
+      description: description,
+    },
+    {
+      new: true,
+    }
+  );
+
+  // console.log(updatedPlaylist);
+
+  if (!updatedPlaylist) {
+    throw new ApiError(500, "Error while updating the playlist!!");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedPlaylist, "Playlist Updated Successfully")
+    );
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-  const { playlistId, videoId } = req.params;
+  // Get the videoID and playlistID from the user
+  // Check the validation for both
+  // Find both(video and playlist) in the  database
+  // Check if the video is already exist in the playlist
+  // Check owner of the video and playlist
+  // Add the video in the playlist
+  // Return Response
+
+  const { videoId, playlistId } = req.params;
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid Playlist ID");
   }
@@ -140,6 +175,46 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Video ID");
   }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  const playlist = await Playlist.findById(playlistId);
+  if (!playlist) {
+    throw new ApiError(404, "Playlist not found");
+  }
+
+  // Check if the Video is already exist in the playlist
+  if (playlist.videos.some((field) => field.equals(videoId))) {
+    throw new ApiError(400, "Video Already exist in the playlist");
+  }
+  // console.log(playlist.videos);    //It'll return an array of videos added in playlist
+
+  // Check owner of the video and playlist
+  if (
+    !(video.owner.equals(req.user._id) && playlist.owner.equals(req.user._id))
+  ) {
+    throw new ApiError(401, "You don't have permission to update playlist");
+  }
+
+  // Add the video in the playlist
+  const updatedPlaylist = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      $push: {
+        videos: videoId,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedPlaylist, "Video Added Successfully"));
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {

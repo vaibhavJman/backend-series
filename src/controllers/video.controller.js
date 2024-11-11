@@ -68,6 +68,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Error uploading thumbnail file on cloud!!!");
   }
 
+  // console.log("\npublishVideo --> Videofile", videoFile);         //Debugging
+  // console.log("\npublishVideo --> thumnbnail", thumbnail);        //Debugging
+
   const video = await Video.create({
     videoFile: videoFile.url,
     thumbnail: thumbnail.url,
