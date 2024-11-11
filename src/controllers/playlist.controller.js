@@ -139,8 +139,10 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   const updatedPlaylist = await Playlist.findByIdAndUpdate(
     playlistId,
     {
-      name: name,
-      description: description,
+      $set: {
+        name: name,
+        description: description,
+      },
     },
     {
       new: true,
