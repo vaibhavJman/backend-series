@@ -99,7 +99,10 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
       },
       {
         upsert: true,
-      } // Upsert: true creates a document if it doesn’t exist
+      }, // Upsert: true creates a document if it doesn’t exist
+      {
+        new: true,
+      }
     );
   } else {
     // If a like exists, remove it by deleting the document
