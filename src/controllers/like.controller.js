@@ -115,13 +115,144 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     );
 });
 
+//Not required
 const toggleTweetLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
   //TODO: toggle like on tweet
 });
 
-const getLikedVideos = asyncHandler(async (req, res) => {
-  //TODO: get all liked videos
+//!----------------------------------------------------------------------------------------------------
+//Using Aggregation Pipelines -- Only One Database Call
+//Aggregation performs everything in a single query, reducing round-trip latency.
+// Aggregation allows MongoDB to process the data on the server side, avoiding excessive memory usage.
+const getUserLikedVideos = asyncHandler(async (req, res) => {
+  const userLikedVideos = await LikeVideo.aggregate([
+    //Stage-1
+    {
+      $match: {
+        likedBy: new mongoose.Types.ObjectId(req.user?._id),
+      },
+    },
+    //Stage-2
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "video",
+        pipeline: [
+          //Sub pipeline
+          // Stage-3
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                //Sub pipeline
+                // Stage - 4
+                {
+                  $project: {
+                    username: 1,
+                    fullName: 1,
+                    email: 1,
+                  },
+                },
+              ],
+            },
+          },
+          //Stage - 5
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+          //Stage - 6
+          {
+            $project: {
+              _id: 0,
+              videoFile: 1,
+              thumbnail: 1,
+              title: 1,
+              duration: 1,
+              views: 1,
+              owner: 1,
+            },
+          },
+        ],
+      },
+    },
+    // Stage - 7
+    {
+      $addFields: {
+        video: {
+          $first: "$video",
+        },
+      },
+    },
+
+    // It will same work as stage-7
+    // {
+    //   $unwind: "$video",
+    // },
+
+    // {
+    //   $project: {
+    //     likedBy: 1,
+    //     video: 1,
+    //   },
+    // },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, userLikedVideos, "Liked Videos Fetched Successfully")
+    );
 });
 
-export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
+//-----------------------------------------------------------------------------------------------------
+// Two Database Calls
+// const getUserLikedVideos = asyncHandler(async (req, res) => {
+//   const likedVideos = await LikeVideo.find({ likedBy: req.user?._id });
+
+//   // The likedVideos array will contain all documents that match the query. The result is loaded into the memory of your backend application. This means the data is brought into your server's RAM (Random Access Memory), and the server will hold it there while it processes it.
+//   // Problem with Large Datasets: If you have many likedVideos (e.g., if a user has liked hundreds of videos), all those documents will be loaded into your server's memory. If the dataset is too large, it can cause performance problems, especially if the server runs out of memory or if it needs to process and handle too much data.
+
+//   if (!likedVideos) {
+//     throw new ApiError(500, "Error while fetching Liked Videos");
+//   }
+
+//   //! NOTE: Making individual database calls for each liked video can be inefficient, especially when the user has liked many videos. To improve performance, we can use MongoDB's $in operator to fetch all videos in a single query by first gathering all the video IDs liked by the user, then querying for those videos in bulk.
+
+//   // Extract video IDs from liked videos
+//   const videoIds = likedVideos.map((likedVideo) => likedVideo.video);
+
+//   // Fetch all videos in a single query using the $in operator
+//   const userLikedVideos = await Video.find({ _id: { $in: videoIds } });
+//   // Can't handle error for each video --> If any video is not found in the dbase, Mongoose will simply skip that ID and only return the videos that exist. It does not throw an error if some of the IDs are missing; instead, it returns an array containing only the documents it found.
+//   //
+
+//   if (!userLikedVideos) {
+//     throw new ApiError(500, "Error while fetching the videos");
+//   }
+//   return res
+//     .status(200)
+//     .json(
+//       new ApiResponse(
+//         200,
+//         userLikedVideos,
+//         "Liked Video Fetched Successfully!!"
+//       )
+//     );
+// });
+
+export {
+  toggleCommentLike,
+  toggleTweetLike,
+  toggleVideoLike,
+  getUserLikedVideos,
+};
