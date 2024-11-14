@@ -59,11 +59,130 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 // controller to return subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
+  if (!isValidObjectId(channelId)) {
+    throw new ApiError(400, "Invalid Channel ID");
+  }
+
+  const ChannelSubscribers = await Subscription.aggregate([
+    //Stage-1
+    {
+      $match: {
+        channel: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    //Stage-2
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscriber",
+        foreignField: "_id",
+        as: "subscriber",
+        pipeline: [
+          //Stage -3
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    //Stage - 4
+    {
+      $addFields: {
+        subscriber: {
+          $first: "$subscriber",
+        },
+      },
+    },
+    //Stage - 5
+    {
+      $project: {
+        _id: 1,
+        channel: 1,
+        subscriber: 1,
+      },
+    },
+  ]);
+
+  if (!ChannelSubscribers) {
+    throw new ApiError(400, "Error Fetching Subscribers List");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        ChannelSubscribers,
+        "Channel Subscribers fetched Successfully"
+      )
+    );
 });
 
 // controller to return channel list to which user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
+  if (!isValidObjectId(subscriberId)) {
+    throw new ApiError(400, "Invalid subscriber ID");
+  }
+
+  const subscribedChannels = await Subscription.aggregate([
+    // Stage -1
+    {
+      $match: {
+        subscriber: new mongoose.Types.ObjectId(subscriberId),
+      },
+    },
+    // Stage -2
+    {
+      $lookup: {
+        from: "users",
+        localField: "channel",
+        foreignField: "_id",
+        as: "channel",
+        pipeline: [
+          //Stage -3
+          {
+            $project: {
+              _id: 1,
+              fullName: 1,
+              username: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    //Stage - 4
+    {
+      $addFields: {
+        channel: {
+          $first: "$channel",
+        },
+      },
+    },
+    //Stage - 5
+    {
+      $project: {
+        _id: 1,
+        channel: 1,
+        subscriber: 1,
+      },
+    },
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        subscribedChannels,
+        "User Subscribed Channel fetched Successfully"
+      )
+    );
 });
 
 export { toggleSubscription, getUserChannelSubscribers, getSubscribedChannels };
