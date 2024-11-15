@@ -58,10 +58,17 @@ const getChannelStats = asyncHandler(async (req, res) => {
     },
 
     //Stage-4
+    // {
+    //   $addFields: {
+    //     likes: {
+    //       $first: "$likes",
+    //     },
+    //   },
+    // },
     {
       $addFields: {
         likes: {
-          $first: "$likes",
+          $ifNull: [{ $first: "$likes.likes" }, 0], // Default to 0 if no likes
         },
       },
     },
