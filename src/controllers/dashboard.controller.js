@@ -6,6 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+//Not completed
 const getChannelStats = asyncHandler(async (req, res) => {
   // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
 
@@ -34,6 +35,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
     },
   ]);
 
+  //Not completed
   const likesCount = await Video.aggregate([
     //Stage-1
     {
@@ -65,6 +67,8 @@ const getChannelStats = asyncHandler(async (req, res) => {
     //     },
     //   },
     // },
+
+    //Stage-4
     {
       $addFields: {
         likes: {
@@ -72,13 +76,27 @@ const getChannelStats = asyncHandler(async (req, res) => {
         },
       },
     },
+
+    //Stage-5
+    // {
+    //   $project: {
+    //     likes: 1,
+    //   },
+    // },
   ]);
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, likesCount, "Channel Stats fetched Successfully!")
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      // { subscriberCount, videoCount, likesCount },
+      {
+        subscriberCount: subscriberCount[0],
+        videoCount: videoCount[0],
+        likesCount: likesCount[0],
+      },
+      "Channel Stats fetched Successfully!"
+    )
+  );
 });
 
 const getChannelVideos = asyncHandler(async (req, res) => {
