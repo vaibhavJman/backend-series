@@ -92,7 +92,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
       {
         subscriberCount: subscriberCount[0],
         videoCount: videoCount[0],
-        likesCount: likesCount[0],
+        likesCount,
       },
       "Channel Stats fetched Successfully!"
     )
